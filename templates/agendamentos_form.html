@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block conteudo %}
+
+<h3>Nova Solicitação</h3>
+
+{% if erro %}
+    <div class="alert alert-danger">{{ erro }}</div>
+{% endif %}
+
+<form method="POST">
+
+    <label>Setor:</label>
+    <select id="setor" class="form-control mb-2">
+        <option value="">Selecione...</option>
+        {% for s in setores %}
+            <option value="{{ s.id }}">{{ s.nome }}</option>
+        {% endfor %}
+    </select>
+
+    <label>Espaço:</label>
+    <select name="espaco_id" id="espaco_id" class="form-control mb-2" disabled></select>
+
+    <label>Data:</label>
+    <input type="date" name="data" class="form-control mb-2">
+
+    <label>Início:</label>
+    <input type="time" name="inicio" id="inicio" class="form-control mb-2">
+
+    <label>Fim:</label>
+    <input type="time" name="fim" id="fim" class="form-control mb-2">
+
+    <div id="alertaConflitos"></div>
+
+    <label>Motivo:</label>
+    <input name="motivo" class="form-control mb-3">
+
+    <button class="btn btn-success">Agendar</button>
+</form>
+
+
+<script>
+
+document.getElementById("setor").addEventListener("change", async function() {
+    let setorId = this.value;
+    let espacoSelect = document.getElementById("espaco_id");
+
+    espacoSelect.innerHTML = "";
+    espacoSelect.disabled = true;
+
+    if (!setorId) return;
+
+    let resp = await fetch(`/api/espacos/${setorId}`);
+    let dados = await resp.json();
+
+    espacoSelect.innerHTML = "<option value=''>Selecione...</option>";
+
+    dados.forEach(e => {
+        let status = e.status === "LIVRE" ? "" : " (BLOQUEADO)";
+        espacoSelect.innerHTML += `<option value="${e.id}">${e.nome}${status}</option>`;
+    });
+
+    espacoSelect.disabled = false;
+});
+
+async function verificarConflitos() {
+
+    const espaco_id = document.getElementById("espaco_id").value;
+
+    const data = document.querySelector("input[name='data']").value;
+    const inicioH = document.getElementById("inicio").value;
+    const fimH = document.getElementById("fim").value;
+
+    if (!espaco_id || !data || !inicioH || !fimH) {
+        return;
+    }
+
+    const inicio = `${data}T${inicioH}`;
+    const fim = `${data}T${fimH}`;
+
+    console.log("Enviando:", inicio, fim);  // DEBUG
+
+    const params = new URLSearchParams({
+        espaco_id,
+        inicio,
+        fim
+    });
+
+    let resp = await fetch("/api/verificar_conflitos?" + params.toString());
+    let dados = await resp.json();
+
+    let box = document.getElementById("alertaConflitos");
+    let botao = document.querySelector("button[type='submit'], button.btn-success");
+
+    box.innerHTML = "";
+    botao.disabled = false;
+
+    // --- APROVADOS (bloqueia)
+    if (dados.aprovados.length > 0) {
+        const ag = dados.aprovados[0];
+
+        box.innerHTML = `
+            <div class="alert alert-danger mt-2">
+                <b>Conflito de horário com outra solicitação aprovada!</b><br>
+                Setor: ${ag.setor}<br>
+                Espaço: ${ag.espaco}<br>
+                Horário: ${ag.inicio} – ${ag.fim}<br>
+                Solicitante: ${ag.usuario}
+            </div>
+        `;
+        botao.disabled = true;
+        return;
+    }
+
+    // --- PENDENTES (amarelo)
+    if (dados.pendentes.length > 0) {
+        box.innerHTML = `
+            <div class="alert alert-warning mt-2">
+                <b>Espaço com outra solicitação pendente em andamento.</b>
+            </div>
+        `;
+    }
+}
+
+// LISTENERS
+document.getElementById("espaco_id").addEventListener("change", verificarConflitos);
+document.getElementById("inicio").addEventListener("change", verificarConflitos);
+document.getElementById("fim").addEventListener("change", verificarConflitos);
+
+</script>
+
+{% endblock %}

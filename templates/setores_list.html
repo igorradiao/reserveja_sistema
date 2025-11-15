@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block conteudo %}
+
+<h3>Setores</h3>
+
+<a href="/setores/novo" class="btn btn-primary mb-3">Novo Setor</a>
+
+<table class="table table-bordered">
+    <tr>
+        <th>ID</th>
+        <th>Nome</th>
+    </tr>
+
+    {% for s in setores %}
+    <tr>
+        <td>{{ s.id }}</td>
+        <td>{{ s.nome }}</td>
+    </tr>
+    {% endfor %}
+</table>
+
+{% endblock %}

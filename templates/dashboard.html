@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block conteudo %}
+
+<h3>Dashboard — Agendamentos do Dia</h3>
+
+<!-- FILTROS - Modelo A -->
+<div class="card p-3 mb-3">
+
+    <div class="row">
+
+        <!-- STATUS -->
+        <div class="col-md-4">
+            <label><b>Status:</b></label><br>
+            <label><input type="checkbox" class="filtro-status" value="APROVADO" checked> Aprovado</label><br>
+            <label><input type="checkbox" class="filtro-status" value="PENDENTE" checked> Pendente</label><br>
+            <label><input type="checkbox" class="filtro-status" value="RECUSADO" checked> Recusado</label><br>
+            <label><input type="checkbox" class="filtro-status" value="CANCELADO" checked> Cancelado</label>
+        </div>
+
+        <!-- SETOR -->
+        <div class="col-md-4">
+            <label><b>Setor:</b></label>
+            <select id="filtroSetor" class="form-control">
+                <option value="">Todos</option>
+                {% for s in Setor.query.all() %}
+                    <option value="{{ s.id }}">{{ s.nome }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- ESPAÇO -->
+        <div class="col-md-4">
+            <label><b>Espaço:</b></label>
+            <select id="filtroEspaco" class="form-control" disabled>
+                <option value="">Selecione um setor</option>
+            </select>
+        </div>
+
+    </div>
+
+    <button class="btn btn-primary mt-3" onclick="aplicarFiltros()">Aplicar Filtros</button>
+
+    <!-- Botão de PDF -->
+    <a id="pdfLink" href="/exportar_pdf" class="btn btn-danger mt-3 ms-2">
+        📄 Exportar PDF
+    </a>
+</div>
+
+
+<!-- TABELA PRINCIPAL -->
+<table class="table table-bordered table-striped">
+    <thead>
+        <tr>
+            <th>Horário</th>
+            <th>Setor</th>
+            <th>Espaço</th>
+            <th>Solicitante</th>
+            <th>Status</th>
+            <th>Motivo Solicitação</th>
+            <th>Motivo Recusa</th>
+        </tr>
+    </thead>
+
+    <tbody id="tabelaAgendamentos">
+        <!-- preenchido via JavaScript -->
+    </tbody>
+</table>
+
+
+<script>
+// ----------- CARREGAR ESPAÇOS AO TROCAR SETOR --------------
+document.getElementById("filtroSetor").addEventListener("change", async function() {
+    const setor = this.value;
+    const espacoSel = document.getElementById("filtroEspaco");
+
+    espacoSel.disabled = true;
+    espacoSel.innerHTML = "<option value=''>Todos</option>";
+
+    if (!setor) return;
+
+    let resp = await fetch("/api/espacos/" + setor);
+    let espacos = await resp.json();
+
+    espacos.forEach(e => {
+        espacoSel.innerHTML += `<option value="${e.id}">${e.nome}</option>`;
+    });
+
+    espacoSel.disabled = false;
+});
+
+
+// ----------- BUSCAR AGENDAMENTOS COM FILTROS --------------
+async function aplicarFiltros() {
+    let params = [];
+
+    // status
+    document.querySelectorAll(".filtro-status:checked").forEach(cb => {
+        params.push("status=" + cb.value);
+    });
+
+    // setor
+    const setor = document.getElementById("filtroSetor").value;
+    if (setor) params.push("setor_id=" + setor);
+
+    // espaço
+    const espaco = document.getElementById("filtroEspaco").value;
+    if (espaco) params.push("espaco_id=" + espaco);
+
+    // atualizar link do PDF
+    document.getElementById("pdfLink").href = "/exportar_pdf?" + params.join("&");
+
+    // buscar registros
+    let resp = await fetch("/api/dashboard?" + params.join("&"));
+    let dados = await resp.json();
+
+    preencherTabela(dados);
+}
+
+
+// ----------- PREENCHER A TABELA --------------
+function preencherTabela(lista) {
+    const tbody = document.getElementById("tabelaAgendamentos");
+    tbody.innerHTML = "";
+
+    lista.forEach(ag => {
+        tbody.innerHTML += `
+            <tr>
+                <td>${ag.inicio} – ${ag.fim}</td>
+                <td>${ag.setor}</td>
+                <td>${ag.espaco}</td>
+                <td>${ag.usuario}</td>
+                <td>${ag.status}</td>
+                <td>${ag.motivo}</td>
+                <td>${ag.motivo_recusa || ""}</td>
+            </tr>
+        `;
+    });
+}
+
+</script>
+
+{% endblock %}

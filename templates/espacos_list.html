@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block conteudo %}
+
+<h3>Espaços</h3>
+
+<a href="/espacos/novo" class="btn btn-primary mb-3">Novo Espaço</a>
+
+<table class="table table-bordered">
+    <tr>
+        <th>Espaço</th>
+        <th>Setor</th>
+        <th>Status</th>
+        <th>Ação</th>
+    </tr>
+
+    {% for e in espacos %}
+    <tr>
+        <td>{{ e.nome }}</td>
+        <td>{{ e.setor.nome }}</td>
+
+        <td>
+            {% if e.status == "LIVRE" %}
+                <span class="badge bg-success">LIVRE</span>
+            {% else %}
+                <span class="badge bg-danger">BLOQUEADO</span>
+            {% endif %}
+        </td>
+
+        <td>
+            <form method="POST" action="/espacos/{{ e.id }}/status">
+                <button class="btn btn-sm btn-warning">Alternar</button>
+            </form>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+
+{% endblock %}

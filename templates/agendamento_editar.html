@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block conteudo %}
+
+<h3>Editar Agendamento</h3>
+
+<form method="POST">
+
+    <label>Setor:</label>
+    <select id="setor" class="form-control mb-2">
+        {% for s in setores %}
+            <option value="{{ s.id }}" {% if s.id == ag.espaco.setor.id %}selected{% endif %}>{{ s.nome }}</option>
+        {% endfor %}
+    </select>
+
+    <label>Espaço:</label>
+    <select name="espaco_id" id="espaco" class="form-control mb-2"></select>
+
+    <script>
+        const espacos = {{ espacos_json|safe }};
+
+        function carregarEspacos() {
+            const setorId = document.getElementById("setor").value;
+            const espacoSelect = document.getElementById("espaco");
+            espacoSelect.innerHTML = "";
+
+            espacos.forEach(e => {
+                if (e.setor_id == setorId) {
+                    espacoSelect.innerHTML += `
+                        <option value="${e.id}" ${e.id == {{ ag.espaco_id }} ? "selected" : ""}>
+                            ${e.nome}
+                        </option>`;
+                }
+            });
+        }
+        carregarEspacos();
+        document.getElementById("setor").addEventListener("change", carregarEspacos);
+    </script>
+
+    <label>Data:</label>
+    <input type="date" name="data" class="form-control mb-2" value="{{ ag.inicio.strftime('%Y-%m-%d') }}">
+
+    <label>Início:</label>
+    <input type="time" name="inicio" class="form-control mb-2" value="{{ ag.inicio.strftime('%H:%M') }}">
+
+    <label>Fim:</label>
+    <input type="time" name="fim" class="form-control mb-2" value="{{ ag.fim.strftime('%H:%M') }}">
+
+    <label>Motivo:</label>
+    <input name="motivo" class="form-control mb-3" value="{{ ag.motivo }}">
+
+    <button class="btn btn-success">Salvar</button>
+</form>
+
+{% endblock %}

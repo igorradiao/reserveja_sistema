@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+{% block conteudo %}
+
+<link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css' rel='stylesheet' />
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
+
+<h3>Calendário - Agenda</h3>
+
+<!-- FILTROS -->
+<div class="card p-3 mb-3">
+
+    <div class="row">
+
+        <!-- STATUS -->
+        <div class="col-md-4">
+            <label><b>Status:</b></label><br>
+            <label><input type="checkbox" class="filtro-status" value="APROVADO" checked> Aprovado</label><br>
+            <label><input type="checkbox" class="filtro-status" value="PENDENTE" checked> Pendente</label><br>
+            <label><input type="checkbox" class="filtro-status" value="RECUSADO" checked> Recusado</label><br>
+            <label><input type="checkbox" class="filtro-status" value="CANCELADO" checked> Cancelado</label>
+        </div>
+
+        <!-- SETOR -->
+        <div class="col-md-4">
+            <label><b>Setor:</b></label>
+            <select id="filtroSetor" class="form-control">
+                <option value="">Todos</option>
+                {% for s in Setor.query.all() %}
+                    <option value="{{ s.id }}">{{ s.nome }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- ESPAÇO -->
+        <div class="col-md-4">
+            <label><b>Espaço:</b></label>
+            <select id="filtroEspaco" class="form-control" disabled>
+                <option value="">Selecione um setor</option>
+            </select>
+        </div>
+
+    </div>
+
+    <button class="btn btn-primary mt-3" onclick="aplicarFiltros()">Aplicar Filtros</button>
+</div>
+
+
+<div id="calendar"></div>
+
+
+
+<!-- =============== MODAL (mantém a sua versão anterior) =============== -->
+<div id="detalhesModal" class="modal-fundo" style="display:none;">
+    <div class="modal-card">
+        <h4 id="modalTitulo"></h4>
+
+        <p><b>Espaço:</b> <span id="modalEspaco"></span></p>
+        <p><b>Setor:</b> <span id="modalSetor"></span></p>
+        <p><b>Status:</b> <span id="modalStatus"></span></p>
+        <p><b>Horário:</b> <span id="modalHorario"></span></p>
+        <p><b>Solicitante:</b> <span id="modalUsuario"></span></p>
+        <p><b>Motivo:</b> <span id="modalMotivo"></span></p>
+        <p><b>Motivo de recusa:</b> <span id="modalRecusa"></span></p>
+
+        <div class="modal-botoes" style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+            
+        {% if user.pode_aprovar() %}
+            <a id="btnEditar" class="btn btn-warning">✏️ Editar</a>
+
+            <a id="btnExcluir" class="btn btn-danger"
+                    onclick="return confirm('Deseja realmente excluir este agendamento?');">
+                🗑️ Excluir
+            </a>
+        {% endif %}
+
+            <button class="btn btn-secondary" onclick="fecharModal()">Fechar</button>
+
+        </div>
+    </div>
+</div>
+
+
+<style>
+.modal-fundo {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    backdrop-filter: blur(6px);
+    background: rgba(0,0,0,0.3);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 999999;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.modal-fundo.show {
+    display: flex;
+    opacity: 1;
+}
+.modal-card {
+    background: white;
+    padding: 25px;
+    width: 450px;
+    border-radius: 12px;
+    box-shadow: 0px 0px 20px #0004;
+    transform: scale(0.85);
+    opacity: 0;
+    transition: all 0.25s ease;
+}
+.modal-card.show {
+    transform: scale(1);
+    opacity: 1;
+}
+</style>
+
+
+
+<!-- =============== JAVASCRIPT DO CALENDÁRIO =============== -->
+<script>
+
+let calendar;
+
+document.addEventListener('DOMContentLoaded', function() {
+    
+    var calendarEl = document.getElementById('calendar');
+
+    calendar = new FullCalendar.Calendar(calendarEl, {
+
+        initialView: 'dayGridMonth',
+
+        headerToolbar: {
+            left: 'dayGridMonth,timeGridWeek,timeGridDay',
+            center: 'title',
+            right: 'prev,next today'
+        },
+
+        locale: "pt-br",
+
+        events: carregarEventos,
+
+        eventClick: abrirModal
+    });
+
+    calendar.render();
+});
+
+
+// ----------- CARREGAR EVENTOS COM FILTROS --------------
+async function carregarEventos(fetchInfo, successCallback, failureCallback){
+    let params = [];
+
+    // STATUS
+    document.querySelectorAll(".filtro-status:checked").forEach(cb => {
+        params.push("status=" + cb.value);
+    });
+
+    // SETOR
+    const setor = document.getElementById("filtroSetor").value;
+    if (setor) params.push("setor_id=" + setor);
+
+    // ESPAÇO
+    const espaco = document.getElementById("filtroEspaco").value;
+    if (espaco) params.push("espaco_id=" + espaco);
+
+    const resp = await fetch("/api/agendamentos?" + params.join("&"));
+    const dados = await resp.json();
+
+    successCallback(dados);
+}
+
+
+// ----------- APLICAR FILTROS --------------
+function aplicarFiltros(){
+    calendar.refetchEvents();
+}
+
+
+// ----------- CARREGAR ESPAÇOS AO TROCAR SETOR --------------
+document.getElementById("filtroSetor").addEventListener("change", async function() {
+    let setorId = this.value;
+    let espacoSelect = document.getElementById("filtroEspaco");
+
+    espacoSelect.disabled = true;
+    espacoSelect.innerHTML = "<option value=''>Todos</option>";
+
+    if (!setorId){
+        return;
+    }
+
+    let resp = await fetch("/api/espacos/" + setorId);
+    let dados = await resp.json();
+
+    dados.forEach(e => {
+        espacoSelect.innerHTML += `<option value="${e.id}">${e.nome}</option>`;
+    });
+
+    espacoSelect.disabled = false;
+});
+
+
+// ----------- MODAL --------------
+async function abrirModal(info){
+
+    let resp = await fetch("/api/agendamento/" + info.event.id);
+    let dados = await resp.json();
+
+    document.getElementById("modalEspaco").innerText = dados.espaco;
+    document.getElementById("modalSetor").innerText = dados.setor;
+
+    let status = dados.status;
+    let emoji = "🟦 ";
+
+    if (status === "APROVADO") emoji = "🟢 ";
+    if (status === "PENDENTE") emoji = "🟡 ";
+    if (status === "RECUSADO") emoji = "🔴 ";
+    if (status === "CANCELADO") emoji = "⚫ ";
+
+    document.getElementById("modalStatus").innerHTML = emoji + status;
+
+    document.getElementById("modalHorario").innerText = dados.inicio + " até " + dados.fim;
+    document.getElementById("modalUsuario").innerText = dados.usuario;
+    document.getElementById("modalMotivo").innerText = dados.motivo;
+    document.getElementById("modalRecusa").innerText = dados.motivo_recusa || "(nenhuma)";
+
+    // LINKS DO CRUD
+    let btnEditar = document.getElementById("btnEditar");
+    let btnExcluir = document.getElementById("btnExcluir");
+
+    if (btnEditar) btnEditar.href = `/agendamentos/${info.event.id}/editar`;
+    if (btnExcluir) btnExcluir.href = `/agendamentos/${info.event.id}/excluir`;
+
+
+    const fundo = document.getElementById("detalhesModal");
+    const card = document.querySelector(".modal-card");
+
+    fundo.style.display = "flex";
+    setTimeout(() => fundo.classList.add("show"), 10);
+    setTimeout(() => card.classList.add("show"), 50);
+}
+
+function fecharModal(){
+    const fundo = document.getElementById("detalhesModal");
+    const card = document.querySelector(".modal-card");
+
+    card.classList.remove("show");
+    fundo.classList.remove("show");
+
+    setTimeout(() => {
+        fundo.style.display = "none";
+    }, 300);
+}
+
+</script>
+
+{% endblock %}

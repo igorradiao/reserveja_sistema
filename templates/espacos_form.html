@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block conteudo %}
+
+<h3>Novo Espaço</h3>
+
+<form method="POST">
+
+    <label>Nome:</label>
+    <input name="nome" class="form-control mb-2">
+
+    <label>Setor:</label>
+    <select name="setor_id" class="form-control mb-3">
+        {% for s in setores %}
+            <option value="{{ s.id }}">{{ s.nome }}</option>
+        {% endfor %}
+    </select>
+
+    <button class="btn btn-success">Salvar</button>
+</form>
+
+{% endblock %}

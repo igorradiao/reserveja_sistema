@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block conteudo %}
+
+<h3>Recusar Solicitação</h3>
+
+{% if erro %}
+<div class="alert alert-danger">{{ erro }}</div>
+{% endif %}
+
+<div class="card mb-3">
+    <div class="card-body">
+        <p><b>Espaço:</b> {{ ag.espaco.nome }}</p>
+        <p><b>Setor:</b> {{ ag.espaco.setor.nome }}</p>
+        <p><b>Horário:</b> 
+            {{ ag.inicio.strftime('%d/%m/%Y %H:%M') }} - 
+            {{ ag.fim.strftime('%H:%M') }}
+        </p>
+        <p><b>Solicitante:</b> {{ ag.usuario.nome }}</p>
+        <p><b>Motivo informado:</b> {{ ag.motivo }}</p>
+    </div>
+</div>
+
+<form method="POST">
+    <label class="form-label"><b>Justificativa da recusa (obrigatória):</b></label>
+    <textarea name="justificativa" class="form-control mb-3" rows="4" required></textarea>
+
+    <button class="btn btn-danger">Confirmar Recusa</button>
+    <a href="/agendamentos/pendentes" class="btn btn-secondary">Cancelar</a>
+</form>
+
+{% endblock %}
